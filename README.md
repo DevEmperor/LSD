@@ -1,3 +1,7 @@
+[![asciicast](https://asciinema.org/a/441333.svg)](https://asciinema.org/a/441333)
+
+
+
 # LSD (Linux Spotify Downloader)
 
 **LSD (Linux Spotify Downloader) is a command line tool for downloading or rather recording content on Spotify.**
