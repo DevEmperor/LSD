@@ -139,7 +139,7 @@ if __name__ == '__main__':
                 # cut the recording, tag and export all tracks
                 print("{} Splitting the recorded file on silence ...".format(INFO))
                 recording = AudioSegment.from_mp3(OUTPUT_DIR + "/.temp.mp3")
-                chunks = silence.split_on_silence(recording, silence_thresh=-60, min_silence_len=100, seek_step=10)
+                chunks = silence.split_on_silence(recording, silence_thresh=-65, min_silence_len=100, seek_step=10)
 
                 skipped = 0
                 for idx, audio in enumerate(chunks):
@@ -162,7 +162,7 @@ if __name__ == '__main__':
                         }
                         urlretrieve(song["album"]["images"][0]["url"], OUTPUT_DIR + "/.cover.jpg")  # download cover art
 
-                        audio.export(OUTPUT_DIR + "/" + song["name"].replace("-", "~").replace("/", "|") + ".mp3",
+                        audio.export(OUTPUT_DIR + "/" + song["name"].replace("-", "~").replace("/", "~").replace("|", "~") + ".mp3",
                                      format="mp3", bitrate="192k", tags=tags, cover=OUTPUT_DIR + "/.cover.jpg")
                     else: skipped += 1
                 os.remove(OUTPUT_DIR + "/.temp.wav")  # remove the old wav-file and mp3-file ...
