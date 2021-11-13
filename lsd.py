@@ -162,13 +162,14 @@ if __name__ == '__main__':
                         }
                         urlretrieve(song["album"]["images"][0]["url"], OUTPUT_DIR + "/.cover.jpg")  # download cover art
 
-                        audio.export(OUTPUT_DIR + "/" + song["name"].replace("-", "~").replace("/", "~").replace("|", "~") + ".mp3",
-                                     format="mp3", bitrate="192k", tags=tags, cover=OUTPUT_DIR + "/.cover.jpg")
+                        audio.export(OUTPUT_DIR + "/" + song["name"].replace("-", "~").replace("/", "~")
+                                     .replace("|", "~") + ".mp3", format="mp3", bitrate="192k", tags=tags,
+                                     cover=OUTPUT_DIR + "/.cover.jpg")
                     else: skipped += 1
-                os.remove(OUTPUT_DIR + "/.temp.wav")  # remove the old wav-file and mp3-file ...
-                os.remove(OUTPUT_DIR + "/.temp.mp3")
-                os.remove(OUTPUT_DIR + "/.cover.jpg")  # ...and the cover-file
-                print("\r{}{} Done!".format(INFO, GREEN) + " " * (T_WIDTH - 9))
+                    os.remove(OUTPUT_DIR + "/.temp.mp3")  # remove all temporary files
+                    os.remove(OUTPUT_DIR + "/.cover.jpg")
+            os.remove(OUTPUT_DIR + "/.temp.wav")
+            print("\r{}{} Done!".format(INFO, GREEN) + " " * (T_WIDTH - 9))
 
     except KeyboardInterrupt:
         subprocess.Popen(["pulseaudio", "-k"])
