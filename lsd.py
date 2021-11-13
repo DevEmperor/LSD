@@ -166,8 +166,8 @@ if __name__ == '__main__':
                                      .replace("|", "~") + ".mp3", format="mp3", bitrate="192k", tags=tags,
                                      cover=OUTPUT_DIR + "/.cover.jpg")
                     else: skipped += 1
-                    os.remove(OUTPUT_DIR + "/.temp.mp3")  # remove all temporary files
-                    os.remove(OUTPUT_DIR + "/.cover.jpg")
+                os.remove(OUTPUT_DIR + "/.temp.mp3")  # remove all temporary files
+                os.remove(OUTPUT_DIR + "/.cover.jpg")
             os.remove(OUTPUT_DIR + "/.temp.wav")
             print("\r{}{} Done!".format(INFO, GREEN) + " " * (T_WIDTH - 9))
 
