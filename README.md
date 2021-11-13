@@ -41,7 +41,7 @@
 3. Open the Spotify Application and wait a few seconds until LSD has initialized the recording interface using PulseAudio
 4. Now you can play a playlist, audiobook, podcast or individual tracks. Everything is recorded and then separated and tagged fully automatically.
    LSD only records the audio output from Spotify, but you should still make sure that you don't fast-forward tracks or record multiple times, otherwise the program won't work properly when exporting.
-5. Close Spotify as soon as you are finished recording.
+5. Close Spotify as soon as you are finished recording and LSD will do the rest for you.
 
 
 
