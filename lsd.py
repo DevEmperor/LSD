@@ -2,8 +2,9 @@
 
 # CONFIGURATION-SECTION
 OUTPUT_DIR = ""  # set an output folder in case you want to set this folder as default
-CLIENT_ID = "abcdefghijklmnpqrstuvwxyz"
-CLIENT_SECRET = "ABCDEFGHIJKLMNPQRSTUVWXYZ"
+SPOTIFY_CLIENT_ID = "SPOTIFY_CLIENT_ID"
+SPOTIFY_CLIENT_SECRET = "SPOTIFY_CLIENT_SECRET"
+GENIUS_ACCESS_TOKEN = "GENIUS_ACCESS_TOKEN"
 
 # check for missing dependencies which are:
 try:
@@ -18,8 +19,9 @@ try:
     import spotipy
     from spotipy.oauth2 import SpotifyClientCredentials as SpClCr
     from pydub import AudioSegment, silence
+    import lyricsgenius
 except ImportError as e:
-    subprocess = os = threading = time = shutil = urlretrieve = dbus = spotipy = SpClCr = AudioSegment = silence = None
+    subprocess = os = time = shutil = urlretrieve = dbus = spotipy = SpClCr = AudioSegment = silence = lyricsgenius = None
     exit("\033[91mMissing dependency: {}. Please check your installation!".format(e.name))
 
 # colors used to make the terminal look nicer
@@ -35,7 +37,7 @@ if __name__ == '__main__':
 
     # always check for ctrl+c
     try:
-        sp = spotipy.Spotify(auth_manager=SpClCr(client_id=CLIENT_ID, client_secret=CLIENT_SECRET))
+        sp = spotipy.Spotify(auth_manager=SpClCr(client_id=SPOTIFY_CLIENT_ID, client_secret=SPOTIFY_CLIENT_SECRET))
         T_WIDTH = shutil.get_terminal_size().columns
 
         # welcome-message
@@ -141,12 +143,24 @@ if __name__ == '__main__':
                 recording = AudioSegment.from_mp3(OUTPUT_DIR + "/.temp.mp3")
                 chunks = silence.split_on_silence(recording, silence_thresh=-65, min_silence_len=100, seek_step=10)
 
+                # initialize access to Genius-API
+                genius = None
+                if GENIUS_ACCESS_TOKEN != "":
+                    genius = lyricsgenius.Genius(GENIUS_ACCESS_TOKEN)
+                    genius.verbose = False
+
                 skipped = 0
                 for idx, audio in enumerate(chunks):
                     if audio.duration_seconds >= 40:
                         song = sp.track(tracks[idx - skipped])
                         print("\r{} Converting and tagging \"{}\" ...".format(INFO, song["name"])
                               + " " * (T_WIDTH - 33 - len(song["name"])), end="", flush=True)
+
+                        if genius.access_token == "Bearer asd":
+                            genius_song = genius.search_song(song["name"], song["artists"][0]["name"])
+                            if genius_song is not None: lyrics = genius_song.lyrics
+                            else: lyrics = "There are no lyrics available for this track..."
+                        else: lyrics = "There are no lyrics available for this track..."
 
                         # parse tags and download cover
                         tags = {
@@ -158,7 +172,8 @@ if __name__ == '__main__':
                             "album": song["album"]["name"],
                             "copyright": "Recorded with LinuxSpotifyDownloader from Spotify",
                             "track": song["track_number"],
-                            "date": song["album"]["release_date"][0:4]
+                            "date": song["album"]["release_date"][0:4],
+                            "lyrics": lyrics
                         }
                         urlretrieve(song["album"]["images"][0]["url"], OUTPUT_DIR + "/.cover.jpg")  # download cover art
 
