@@ -31,8 +31,7 @@ INFO, WARNING, ERROR, REQUEST = f"[{GREEN}+{RST}]", f"[{YELLOW}~{RST}]", f"[{RED
 # main-function
 if __name__ == '__main__':
     # verify that the Pulseaudio and the parec-command is installed on this system
-    if subprocess.Popen("parec --help && pacmd --help", stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL, shell=True).wait() != 0:
+    if subprocess.Popen("parec --help && pacmd --help", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True).wait() != 0:
         exit("{} This script needs a Linux system with Pulseaudio installed (e.g. KDE) to record tracks.".format(ERROR))
 
     # always check for ctrl+c
@@ -95,8 +94,7 @@ if __name__ == '__main__':
 
         # start the recording with parec (PulseAudio-Recording)
         print("\n" + "---- RECORDING " + "-" * (T_WIDTH - 15) + "\n")
-        recording_process = subprocess.Popen(f"parec -d lsd.monitor --file-format=wav".split()
-                                             + [OUTPUT_DIR + "/.temp.wav"])
+        recording_process = subprocess.Popen(f"parec -d lsd.monitor --file-format=wav".split() + [OUTPUT_DIR + "/.temp.wav"])
 
         # initialize some variables
         last_url = ""
@@ -119,8 +117,7 @@ if __name__ == '__main__':
                         ad = False
                         counter += 1
                         tracks.append(meta["xesam:url"])
-                        print("{} ({}) Recording: {} - {}{}{}"
-                              .format(INFO, counter, meta["xesam:artist"][0], BOLD, meta["xesam:title"], RST))
+                        print("{} ({}) Recording: {} - {}{}{}".format(INFO, counter, meta["xesam:artist"][0], BOLD, meta["xesam:title"], RST))
                     elif not ad:
                         print("{} I have detected an advertisement, so I won't record this shit!".format(WARNING))
                         ad = True
@@ -135,8 +132,7 @@ if __name__ == '__main__':
                 print("\n" + "---- CONVERTING & TAGGING " + "-" * (T_WIDTH - 26) + "\n")
 
                 print("{} Converting the recorded wav-file to mp3 ...".format(INFO))
-                AudioSegment.from_wav(OUTPUT_DIR + "/.temp.wav") \
-                    .export(OUTPUT_DIR + "/.temp.mp3", format="mp3", bitrate="192k")
+                AudioSegment.from_wav(OUTPUT_DIR + "/.temp.wav").export(OUTPUT_DIR + "/.temp.mp3", format="mp3", bitrate="192k")
 
                 # cut the recording, tag and export all tracks
                 print("{} Splitting the recorded file on silence ...".format(INFO))
@@ -153,14 +149,16 @@ if __name__ == '__main__':
                 for idx, audio in enumerate(chunks):
                     if audio.duration_seconds >= 40:
                         song = sp.track(tracks[idx - skipped])
-                        print("\r{} Converting and tagging \"{}\" ...".format(INFO, song["name"])
-                              + " " * (T_WIDTH - 33 - len(song["name"])), end="", flush=True)
+                        print("\r{} Converting and tagging \"{}\" ...".format(INFO, song["name"]) + " " * (T_WIDTH - 33 - len(song["name"])), end="", flush=True)
 
                         if genius.access_token == "Bearer asd":
                             genius_song = genius.search_song(song["name"], song["artists"][0]["name"])
-                            if genius_song is not None: lyrics = genius_song.lyrics
-                            else: lyrics = "There are no lyrics available for this track..."
-                        else: lyrics = "There are no lyrics available for this track..."
+                            if genius_song is not None:
+                                lyrics = genius_song.lyrics
+                            else:
+                                lyrics = "There are no lyrics available for this track..."
+                        else:
+                            lyrics = "There are no lyrics available for this track..."
 
                         # parse tags and download cover
                         tags = {
@@ -178,8 +176,7 @@ if __name__ == '__main__':
                         urlretrieve(song["album"]["images"][0]["url"], OUTPUT_DIR + "/.cover.jpg")  # download cover art
 
                         audio.export(OUTPUT_DIR + "/" + song["name"].replace("-", "~").replace("/", "~")
-                                     .replace("|", "~") + ".mp3", format="mp3", bitrate="192k", tags=tags,
-                                     cover=OUTPUT_DIR + "/.cover.jpg")
+                                     .replace("|", "~") + ".mp3", format="mp3", bitrate="192k", tags=tags, cover=OUTPUT_DIR + "/.cover.jpg")
                     else: skipped += 1
                 os.remove(OUTPUT_DIR + "/.temp.mp3")  # remove all temporary files
                 os.remove(OUTPUT_DIR + "/.cover.jpg")
