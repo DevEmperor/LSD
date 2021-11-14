@@ -47,7 +47,7 @@ if __name__ == '__main__':
               gap + f"██{RED}║{RST}      {YELLOW}╚════{RST}██{YELLOW}║{RST} ██{GREEN}║{RST}  ██{GREEN}║{RST}" +
               gap + f"███████{RED}╗{RST} ███████{YELLOW}║{RST} ██████{GREEN}╔╝{RST}" +
               gap + f"{RED}╚══════╝{RST} {YELLOW}╚══════╝{RST} {GREEN}╚═════╝{RST}" +
-              "\n" + " " * (T_WIDTH // 2 - 14) + " Linux-Spotify-Downloader 2.0" +
+              "\n" + " " * (T_WIDTH // 2 - 14) + " Linux-Spotify-Downloader 2.1" +
               gap + " developed by Jannis Zahn")
 
         # specify the output-directory
