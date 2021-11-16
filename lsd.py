@@ -31,8 +31,8 @@ INFO, WARNING, ERROR, REQUEST = f"[{GREEN}+{RST}]", f"[{YELLOW}~{RST}]", f"[{RED
 # main-function
 if __name__ == '__main__':
     # verify that the Pulseaudio and the parec-command is installed on this system
-    if subprocess.Popen("parec --help && pacmd --help", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True).wait() != 0:
-        exit("{} This script needs a Linux system with Pulseaudio installed (e.g. KDE) to record tracks.".format(ERROR))
+    if subprocess.Popen("parec --help && pw-cli --help", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True).wait() != 0:
+        exit("{} This script needs a Linux system with Pipewire & Pulseaudio installed (e.g. KDE) to record tracks.".format(ERROR))
 
     # always check for ctrl+c
     try:
@@ -47,7 +47,7 @@ if __name__ == '__main__':
               gap + f"██{RED}║{RST}      {YELLOW}╚════{RST}██{YELLOW}║{RST} ██{GREEN}║{RST}  ██{GREEN}║{RST}" +
               gap + f"███████{RED}╗{RST} ███████{YELLOW}║{RST} ██████{GREEN}╔╝{RST}" +
               gap + f"{RED}╚══════╝{RST} {YELLOW}╚══════╝{RST} {GREEN}╚═════╝{RST}" +
-              "\n" + " " * (T_WIDTH // 2 - 14) + " Linux-Spotify-Downloader 2.1" +
+              "\n" + " " * (T_WIDTH // 2 - 14) + " Linux-Spotify-Downloader 2.2" +
               gap + " developed by Jannis Zahn")
 
         # specify the output-directory
@@ -55,7 +55,8 @@ if __name__ == '__main__':
         if not os.path.isdir(OUTPUT_DIR):
             while True:
                 OUTPUT_DIR = input("{} Please specify an existing and writable output-directory: ".format(REQUEST))
-                if os.path.isdir(OUTPUT_DIR): break
+                if os.path.isdir(OUTPUT_DIR):
+                    break
         OUTPUT_DIR = os.path.abspath(OUTPUT_DIR)
         print("{} Output-Directory: {}".format(INFO, OUTPUT_DIR))
 
@@ -74,27 +75,27 @@ if __name__ == '__main__':
         print("\r{} OK, I have found a running Spotify-Application".format(INFO))
 
         # find spotify-input-sink and create monitor to record from
-        print("{} I have to play a track to create a new recording interface ...".format(INFO), end="", flush=True)
+        print("{} I have to play a track to create a new recording interface ...".format(INFO))
         methods_if.Play()
-        time.sleep(3)
+        time.sleep(1)
         while True:
-            sink_inputs = subprocess.run(["pacmd", "list-sink-inputs"], stdout=subprocess.PIPE).stdout.decode()
-            if "application.name = \"Spotify\"" in sink_inputs: break
+            sink_inputs = subprocess.run("pw-cli ls Node".split(), stdout=subprocess.PIPE).stdout.decode()
+            if "application.name = \"spotify\"" in sink_inputs:
+                break
             time.sleep(1)
         methods_if.Pause()
         time.sleep(0.5)
-        sink_index = sink_inputs.split("application.name = \"Spotify\"")[0].split("index: ")[-1].split("\n")[0]
-        if subprocess.Popen(f"pactl load-module module-null-sink sink_name=lsd && pactl move-sink-input {sink_index} "
-                            f"lsd", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True).wait() == 0:
-            print("\r{} I have successfully created the recording interface to record from Spotify only.\n".format(INFO)
-                  + "{}    I will now listen for tracks to be played ... Please close Spotify as soon as you finished "
-                    "playing all songs!{}".format(BOLD, RST))
+        sink_index = sink_inputs.split("application.name = \"spotify\"")[0].split("\tid ")[-1].split(",")[0]
+        if subprocess.Popen("pactl load-module module-null-sink sink_name=lsd && pactl move-sink-input {} lsd".format(sink_index),
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True).wait() == 0:
+            print("{}{} I will now listen for tracks to be played ..."
+                  "Please close Spotify as soon as you finished playing all songs!{}".format(INFO, BOLD, RST))
         else:
             exit("\r{} Error while creating the recording device for Spotify.".format(ERROR))
 
         # start the recording with parec (PulseAudio-Recording)
         print("\n" + "---- RECORDING " + "-" * (T_WIDTH - 15) + "\n")
-        recording_process = subprocess.Popen(f"parec -d lsd.monitor --file-format=wav".split() + [OUTPUT_DIR + "/.temp.wav"])
+        recording_process = subprocess.Popen("parec -d lsd.monitor --file-format=wav".split() + [OUTPUT_DIR + "/.temp.wav"])
 
         # initialize some variables
         last_url = ""
@@ -102,11 +103,12 @@ if __name__ == '__main__':
         tracks = []
         ad = False
 
-        # wait until first song starts (to make it possible to record also the current song)
-        while prop_if.Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus") != "Playing": time.sleep(0.01)
-
         # continue reading dbus-properties until Spotify gets closed
         try:
+            # wait until first song starts (to make it possible to record also the current song)
+            while prop_if.Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus") != "Playing":
+                time.sleep(0.01)
+
             while True:
                 # get all meta-information about the current track
                 meta = prop_if.Get("org.mpris.MediaPlayer2.Player", "Metadata")
@@ -125,7 +127,7 @@ if __name__ == '__main__':
 
         except dbus.exceptions.DBusException:  # means that Spotify is closed, because there is no bus any more
             recording_process.terminate()  # stop the recording
-            subprocess.Popen(["pulseaudio", "-k"])  # restore original pulseaudio-configuration
+            subprocess.Popen("systemctl --user restart pipewire pipewire-pulse".split())  # restore original pulseaudio-configuration
             print("{} I have recorded {} track(s).".format(INFO, counter))
 
             if counter > 0:
@@ -149,9 +151,9 @@ if __name__ == '__main__':
                 for idx, audio in enumerate(chunks):
                     if audio.duration_seconds >= 40:
                         song = sp.track(tracks[idx - skipped])
-                        print("\r{} Converting and tagging \"{}\" ...".format(INFO, song["name"]) + " " * (T_WIDTH - 33 - len(song["name"])), end="", flush=True)
+                        print("{} Converting and tagging \"{}\" ...".format(INFO, song["name"]))
 
-                        if genius.access_token == "Bearer asd":
+                        if genius.access_token.startswith("Bearer"):
                             genius_song = genius.search_song(song["name"], song["artists"][0]["name"])
                             if genius_song is not None:
                                 lyrics = genius_song.lyrics
@@ -177,12 +179,13 @@ if __name__ == '__main__':
 
                         audio.export(OUTPUT_DIR + "/" + song["name"].replace("-", "~").replace("/", "~")
                                      .replace("|", "~") + ".mp3", format="mp3", bitrate="192k", tags=tags, cover=OUTPUT_DIR + "/.cover.jpg")
-                    else: skipped += 1
+                    else:
+                        skipped += 1
                 os.remove(OUTPUT_DIR + "/.temp.mp3")  # remove all temporary files
                 os.remove(OUTPUT_DIR + "/.cover.jpg")
             os.remove(OUTPUT_DIR + "/.temp.wav")
-            print("\r{}{} Done!".format(INFO, GREEN) + " " * (T_WIDTH - 9))
+            print("{}{} Done!".format(INFO, GREEN))
 
     except KeyboardInterrupt:
-        subprocess.Popen(["pulseaudio", "-k"])
+        subprocess.Popen("systemctl --user restart pipewire pipewire-pulse".split())
         exit("\n{}Detected Ctrl+C (Keyboard-Interrupt) ... Bye! :-)".format(RED))

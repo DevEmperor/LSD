@@ -11,7 +11,7 @@
 ## Dependencies
 
 - Python 3.6 or higher
-- any Linux distribution with PulseAudio as its sound server
+- any Linux distribution with Pipewire & PulseAudio as its sound server
 - git, ffmpeg and pip
 
 
@@ -40,7 +40,7 @@
 
 ## Usage
 
-1. Run LSD with "`python3 lsd.py`"
+1. Run LSD with `python3 lsd.py`
 2. Enter the path to your output directory. (If you always want to export to the same folder, you can also enter the path in the configuration section of "*lsd.py*")
 3. Open the Spotify Application and wait a few seconds until LSD has initialized the recording interface using PulseAudio
 4. Now you can play a playlist, audiobook, podcast or individual tracks. Everything is recorded and then separated and tagged fully automatically.
@@ -51,4 +51,4 @@
 
 ## License
 
-Fastr is under the terms of the [Apapche 2.0 license](https://www.apache.org/licenses/LICENSE-2.0), following all clarifications stated in the [license file](https://raw.githubusercontent.com/DevEmperor/LSD/master/LICENSE)
+LSD is under the terms of the [Apapche 2.0 license](https://www.apache.org/licenses/LICENSE-2.0), following all clarifications stated in the [license file](https://raw.githubusercontent.com/DevEmperor/LSD/master/LICENSE)
