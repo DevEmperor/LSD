@@ -3,6 +3,7 @@
 
 
 # LSD (Linux Spotify Downloader)
+![GitHub](https://img.shields.io/github/license/DevEmperor/LSD?style=for-the-badge)  ![GitHub release (latest by date)](https://img.shields.io/github/v/release/DevEmperor/LSD?style=for-the-badge)
 
 **LSD (Linux Spotify Downloader) is a command line tool for downloading or rather recording content on Spotify.**
 
