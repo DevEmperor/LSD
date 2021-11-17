@@ -77,7 +77,7 @@ if __name__ == '__main__':
         # find spotify-input-sink and create monitor to record from
         print("{} I have to play a track to create a new recording interface ...".format(INFO))
         methods_if.Play()
-        time.sleep(1)
+        time.sleep(3)
         while True:
             sink_inputs = subprocess.run("pw-cli ls Node".split(), stdout=subprocess.PIPE).stdout.decode()
             if "application.name = \"spotify\"" in sink_inputs:
