@@ -20,8 +20,12 @@ try:
     from spotipy.oauth2 import SpotifyClientCredentials as SpClCr
     from pydub import AudioSegment, silence
     import lyricsgenius
+    import eyed3
+
+    # verify that the Pulseaudio and the parec-command is installed on this system
+    if subprocess.Popen("parec --help && pw-cli --help", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True).wait() != 0:
+        raise ImportError(name="Pipewire & PulseAudio")
 except ImportError as e:
-    subprocess = os = time = shutil = urlretrieve = dbus = spotipy = SpClCr = AudioSegment = silence = lyricsgenius = None
     exit("\033[91mMissing dependency: {}. Please check your installation!".format(e.name))
 
 # colors used to make the terminal look nicer
@@ -30,10 +34,6 @@ INFO, WARNING, ERROR, REQUEST = f"[{GREEN}+{RST}]", f"[{YELLOW}~{RST}]", f"[{RED
 
 # main-function
 if __name__ == '__main__':
-    # verify that the Pulseaudio and the parec-command is installed on this system
-    if subprocess.Popen("parec --help && pw-cli --help", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True).wait() != 0:
-        exit("{} This script needs a Linux system with Pipewire & Pulseaudio installed (e.g. KDE) to record tracks.".format(ERROR))
-
     # always check for ctrl+c
     try:
         sp = spotipy.Spotify(auth_manager=SpClCr(client_id=SPOTIFY_CLIENT_ID, client_secret=SPOTIFY_CLIENT_SECRET))
@@ -153,15 +153,6 @@ if __name__ == '__main__':
                         song = sp.track(tracks[idx - skipped])
                         print("{} Converting and tagging \"{}\" ...".format(INFO, song["name"]))
 
-                        if genius.access_token.startswith("Bearer"):
-                            genius_song = genius.search_song(song["name"], song["artists"][0]["name"])
-                            if genius_song is not None:
-                                lyrics = genius_song.lyrics
-                            else:
-                                lyrics = "There are no lyrics available for this track..."
-                        else:
-                            lyrics = "There are no lyrics available for this track..."
-
                         # parse tags and download cover
                         tags = {
                             "title": song["name"].replace("-", "~").replace("/", "|"),
@@ -172,13 +163,25 @@ if __name__ == '__main__':
                             "album": song["album"]["name"],
                             "copyright": "Recorded with LinuxSpotifyDownloader from Spotify",
                             "track": song["track_number"],
-                            "date": song["album"]["release_date"][0:4],
-                            "lyrics": lyrics
+                            "date": song["album"]["release_date"][0:4]
                         }
                         urlretrieve(song["album"]["images"][0]["url"], OUTPUT_DIR + "/.cover.jpg")  # download cover art
 
-                        audio.export(OUTPUT_DIR + "/" + song["name"].replace("-", "~").replace("/", "~")
-                                     .replace("|", "~") + ".mp3", format="mp3", bitrate="192k", tags=tags, cover=OUTPUT_DIR + "/.cover.jpg")
+                        filename = OUTPUT_DIR + "/" + song["name"].replace("-", "~").replace("/", "~").replace("|", "~") + ".mp3"
+                        audio.export(filename, format="mp3", bitrate="192k", tags=tags, cover=OUTPUT_DIR + "/.cover.jpg")
+
+                        if genius.access_token.startswith("Bearer"):
+                            genius_song = genius.search_song(song["name"], song["artists"][0]["name"])
+                            if genius_song is not None:  # only if a song text was found
+                                lyrics = genius_song.lyrics
+                            else:
+                                lyrics = "There are no lyrics available for this track..."
+                        else:
+                            lyrics = "There are no lyrics available for this track..."
+                        audiofile = eyed3.load(filename)  # inject the lyrics with eyeD3 because ffmpeg sets a wrong tag
+                        audiofile.tag.lyrics.set(lyrics, u"XXX")
+                        audiofile.tag.save()
+
                     else:
                         skipped += 1
                 os.remove(OUTPUT_DIR + "/.temp.mp3")  # remove all temporary files
