@@ -5,6 +5,9 @@ OUTPUT_DIR = ""  # set an output folder in case you want to set this folder as d
 SPOTIFY_CLIENT_ID = "SPOTIFY_CLIENT_ID"
 SPOTIFY_CLIENT_SECRET = "SPOTIFY_CLIENT_SECRET"
 GENIUS_ACCESS_TOKEN = "GENIUS_ACCESS_TOKEN"
+SPOTIFY_CLIENT_ID = "c00625bc5088473f932aef5259b70860"
+SPOTIFY_CLIENT_SECRET = "84f586c716de45e9b8b9e351d4084128"
+GENIUS_ACCESS_TOKEN = "3AjfAc-3MXGS6ofU4ox_fbGyq7vETXyX5i_OQp7g4I_vhhNgCcki2cN9gaNhHm10"
 
 # check for missing dependencies which are:
 try:
@@ -17,7 +20,7 @@ try:
     import dbus
 
     import spotipy
-    from spotipy.oauth2 import SpotifyClientCredentials as SpClCr
+    from spotipy.oauth2 import SpotifyClientCredentials
     from pydub import AudioSegment, silence
     import lyricsgenius
     import eyed3
@@ -36,7 +39,7 @@ INFO, WARNING, ERROR, REQUEST = f"[{GREEN}+{RST}]", f"[{YELLOW}~{RST}]", f"[{RED
 if __name__ == '__main__':
     # always check for ctrl+c
     try:
-        sp = spotipy.Spotify(auth_manager=SpClCr(client_id=SPOTIFY_CLIENT_ID, client_secret=SPOTIFY_CLIENT_SECRET))
+        sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=SPOTIFY_CLIENT_ID, client_secret=SPOTIFY_CLIENT_SECRET))
         T_WIDTH = shutil.get_terminal_size().columns
 
         # welcome-message
@@ -73,6 +76,7 @@ if __name__ == '__main__':
             except dbus.exceptions.DBusException:
                 time.sleep(0.2)
         print("\r{} OK, I have found a running Spotify-Application".format(INFO))
+        time.sleep(1)
 
         # find spotify-input-sink and create monitor to record from
         print("{} I have to play a track to create a new recording interface ...".format(INFO))
@@ -88,7 +92,7 @@ if __name__ == '__main__':
         sink_index = sink_inputs.split("application.name = \"spotify\"")[0].split("\tid ")[-1].split(",")[0]
         if subprocess.Popen("pactl load-module module-null-sink sink_name=lsd && pactl move-sink-input {} lsd".format(sink_index),
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True).wait() == 0:
-            print("{}{} I will now listen for tracks to be played ..."
+            print("{}{} I will now listen for tracks to be played ... "
                   "Please close Spotify as soon as you finished playing all songs!{}".format(INFO, BOLD, RST))
         else:
             exit("\r{} Error while creating the recording device for Spotify.".format(ERROR))
@@ -98,9 +102,8 @@ if __name__ == '__main__':
         recording_process = subprocess.Popen("parec -d lsd.monitor --file-format=wav".split() + [OUTPUT_DIR + "/.temp.wav"])
 
         # initialize some variables
-        last_url = ""
         counter = 0
-        tracks = []
+        tracks = [""]
         ad = False
 
         # continue reading dbus-properties until Spotify gets closed
@@ -113,12 +116,11 @@ if __name__ == '__main__':
                 # get all meta-information about the current track
                 meta = prop_if.Get("org.mpris.MediaPlayer2.Player", "Metadata")
 
-                if last_url != meta["xesam:url"]:
-                    last_url = meta["xesam:url"]
-                    if meta["xesam:url"].startswith("https://open.spotify.com/track/"):
+                if tracks[-1] != meta["xesam:url"]:
+                    tracks.append(meta["xesam:url"])
+                    if tracks[-1].startswith("https://open.spotify.com/track/"):
                         ad = False
                         counter += 1
-                        tracks.append(meta["xesam:url"])
                         print("{} ({}) Recording: {} - {}{}{}".format(INFO, counter, meta["xesam:artist"][0], BOLD, meta["xesam:title"], RST))
                     elif not ad:
                         print("{} I have detected an advertisement, so I won't record this shit!".format(WARNING))
@@ -128,7 +130,8 @@ if __name__ == '__main__':
         except dbus.exceptions.DBusException:  # means that Spotify is closed, because there is no bus any more
             recording_process.terminate()  # stop the recording
             subprocess.Popen("systemctl --user restart pipewire pipewire-pulse".split())  # restore original pulseaudio-configuration
-            print("{} I have recorded {} track(s).".format(INFO, counter))
+            tracks = tracks[1:]  # remove the first empty element since it is only used once for comparing above
+            print("\n{} I have recorded {} track(s).".format(INFO, counter))
 
             if counter > 0:
                 print("\n" + "---- CONVERTING & TAGGING " + "-" * (T_WIDTH - 26) + "\n")
@@ -139,7 +142,7 @@ if __name__ == '__main__':
                 # cut the recording, tag and export all tracks
                 print("{} Splitting the recorded file on silence ...".format(INFO))
                 recording = AudioSegment.from_mp3(OUTPUT_DIR + "/.temp.mp3")
-                chunks = silence.split_on_silence(recording, silence_thresh=-65, min_silence_len=100, seek_step=10)
+                chunks = silence.split_on_silence(recording, silence_thresh=-65, min_silence_len=200, seek_step=10, keep_silence=True)
 
                 # initialize access to Genius-API
                 genius = None
@@ -147,19 +150,29 @@ if __name__ == '__main__':
                     genius = lyricsgenius.Genius(GENIUS_ACCESS_TOKEN)
                     genius.verbose = False
 
+                idx = 0
                 skipped = 0
-                for idx, audio in enumerate(chunks):
-                    if audio.duration_seconds >= 40:
-                        song = sp.track(tracks[idx - skipped])
-                        print("{} Converting and tagging \"{}\" ...".format(INFO, song["name"]))
+                audio = AudioSegment.empty()
+                while idx < len(chunks):  # go through all splitted chunks
+                    if not tracks[idx - skipped].startswith("https://open.spotify.com/track/"):  # check if chunk is an ad
+                        idx += 1
+                        continue
 
+                    if audio.duration_seconds == 0:  # if audio is empty ...
+                        song = sp.track(tracks[idx - skipped])  # ... track it ...
+                        print("{} Converting and tagging \"{}\" ...".format(INFO, song["name"]))
+                        audio = chunks[idx]  # ... and start filling it up with the first chunk
+                        idx += 1
+                    if song["duration_ms"] / 1000 - 6 > audio.duration_seconds:  # if the audio isn't about as long as the original song...
+                        audio += chunks[idx]  # ... fill it with the next chunk
+                        skipped += 1
+                        idx += 1
+                    else:  # otherwise it can be tagged and exported
                         # parse tags and download cover
                         tags = {
                             "title": song["name"].replace("-", "~").replace("/", "|"),
-                            "artist": ", ".join(
-                                song["artists"][x]["name"].replace("-", "~") for x in range(len(song["artists"]))),
-                            "album_artist": ", ".join(song["album"]["artists"][x]["name"].replace("-", "~")
-                                                      for x in range(len(song["album"]["artists"]))),
+                            "artist": ", ".join(song["artists"][x]["name"].replace("-", "~") for x in range(len(song["artists"]))),
+                            "album_artist": ", ".join(song["album"]["artists"][x]["name"].replace("-", "~") for x in range(len(song["album"]["artists"]))),
                             "album": song["album"]["name"],
                             "copyright": "Recorded with LinuxSpotifyDownloader from Spotify",
                             "track": song["track_number"],
@@ -182,8 +195,8 @@ if __name__ == '__main__':
                         audiofile.tag.lyrics.set(lyrics, u"XXX")
                         audiofile.tag.save()
 
-                    else:
-                        skipped += 1
+                        audio = AudioSegment.empty()
+
                 os.remove(OUTPUT_DIR + "/.temp.mp3")  # remove all temporary files
                 os.remove(OUTPUT_DIR + "/.cover.jpg")
             os.remove(OUTPUT_DIR + "/.temp.wav")
