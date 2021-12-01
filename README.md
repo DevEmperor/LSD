@@ -45,7 +45,7 @@
 2. Enter the path to your output directory. (If you always want to export to the same folder, you can also enter the path in the configuration section of "*lsd.py*")
 3. Open the Spotify Application and wait a few seconds until LSD has initialized the recording interface using PulseAudio
 4. Now you can play a playlist, audiobook, podcast or individual tracks. Everything is recorded and then separated and tagged fully automatically.
-   LSD only records the audio output from Spotify, but you should still make sure that you don't fast-forward tracks and record them completely, otherwise the program won't work properly when exporting.
+   LSD only records the audio output from Spotify, so you can safely go on with your usual work.
 5. Close Spotify as soon as you are finished recording and LSD will do the rest for you.
 
 
