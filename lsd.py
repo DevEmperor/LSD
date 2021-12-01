@@ -171,10 +171,11 @@ if __name__ == '__main__':
                         filename = OUTPUT_DIR + "/" + song["name"].replace("-", "~").replace("/", "~").replace("|", "~") + ".mp3"
 
                         timestamp_start = int(timestamps[idx]*1000 - t_start*1000)
-                        timestamp_end = timestamp_start + song["duration_ms"]
-                        # the timestamps are too imprecise, therefore the next position is searched where silence starts / stops
-                        recording[min(chunks_starts, key=lambda x: abs(x - timestamp_start)):min(chunks_ends, key=lambda x: abs(x - timestamp_end))] \
-                            .export(filename, format="mp3", bitrate="192k", tags=tags, cover=OUTPUT_DIR + "/.cover.jpg")
+                        timestamp_end = int(timestamps[idx + 1]*1000 - t_start*1000)
+                        # the timestamps are too imprecise, therefore the next position is searched where silence starts / stops and then both values are compared
+                        slice_start = min(chunks_starts, key=lambda x: abs(x - timestamp_start))
+                        slice_end = min(chunks_ends, key=lambda x: abs(x - timestamp_end))
+                        recording[slice_start:slice_end].export(filename, format="mp3", bitrate="192k", tags=tags, cover=OUTPUT_DIR + "/.cover.jpg")
 
                         if genius.access_token.startswith("Bearer"):
                             genius_song = genius.search_song(song["name"], song["artists"][0]["name"])
