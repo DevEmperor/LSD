@@ -85,7 +85,7 @@ if __name__ == '__main__':
                 break
             time.sleep(1)
         methods_if.Pause()
-        time.sleep(0.5)
+        time.sleep(2)
         sink_index = sink_inputs.split("application.name = \"spotify\"")[0].split("\tid ")[-1].split(",")[0]
         if subprocess.Popen("pactl load-module module-null-sink sink_name=lsd && pactl move-sink-input {} lsd".format(sink_index),
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True).wait() == 0:
