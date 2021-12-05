@@ -79,24 +79,24 @@ if __name__ == '__main__':
         print("{} I have to play a track to create a new recording interface ...".format(INFO))
         methods_if.Play()
         time.sleep(2)
-        while True:
-            sink_inputs = subprocess.run("pw-cli ls Node".split(), stdout=subprocess.PIPE).stdout.decode()
-            if "application.name = \"spotify\"" in sink_inputs:
-                break
-            time.sleep(1)
+        sink_inputs = subprocess.run("pw-cli ls Node".split(), stdout=subprocess.PIPE).stdout.decode()
         methods_if.Pause()
         time.sleep(2)
-        sink_index = sink_inputs.split("application.name = \"spotify\"")[0].split("\tid ")[-1].split(",")[0]
-        if subprocess.Popen("pactl load-module module-null-sink sink_name=lsd && pactl move-sink-input {} lsd".format(sink_index),
+        sink_index_spotify = sink_inputs.split("application.name = \"spotify\"")[0].split("\tid ")[-1].split(",")[0]
+        if subprocess.Popen("pactl load-module module-null-sink sink_name=lsd && pactl move-sink-input {} lsd".format(sink_index_spotify),
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True).wait() == 0:
             print("{}{} I will now listen for tracks to be played ... "
                   "Please close Spotify as soon as you finished playing all songs!{}".format(INFO, BOLD, RST))
         else:
             exit("{} Error while creating the recording device for Spotify.".format(ERROR))
 
+        sink_inputs = subprocess.run("pw-cli ls Node".split(), stdout=subprocess.PIPE).stdout.decode()
+        sink_index_lsd = sink_inputs.split("node.name = \"lsd\"")[0].split("\tid ")[-1].split(",")[0]
+
         # start the recording with parec (PulseAudio-Recording)
         print("\n" + "---- RECORDING " + "-" * (T_WIDTH - 15) + "\n")
-        recording_process = subprocess.Popen("parec -d lsd.monitor --file-format=wav".split() + [OUTPUT_DIR + "/.temp.wav"])
+
+        recording_process = subprocess.Popen("parec --monitor-stream {} --file-format=wav".format(sink_index_lsd).split() + [OUTPUT_DIR + "/.temp.wav"])
 
         # initialize some variables
         counter = 0
