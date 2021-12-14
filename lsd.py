@@ -168,7 +168,7 @@ if __name__ == '__main__':
                             "date": song["album"]["release_date"][0:4]
                         }
                         urlretrieve(song["album"]["images"][0]["url"], OUTPUT_DIR + "/.cover.jpg")  # download cover art
-                        filename = OUTPUT_DIR + "/" + song["name"].replace("-", "~").replace("/", "~").replace("|", "~") + ".mp3"
+                        filename = OUTPUT_DIR + "/" + song["name"].replace("-", "~").replace("/", "~").replace("|", "~").replace("\"", "\'") + ".mp3"
 
                         timestamp_start = int(timestamps[idx]*1000 - t_start*1000)
                         timestamp_end = int(timestamps[idx + 1]*1000 - t_start*1000)
