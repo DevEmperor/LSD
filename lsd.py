@@ -83,12 +83,9 @@ if __name__ == '__main__':
         methods_if.Pause()
         time.sleep(2)
         sink_index_spotify = sink_inputs.split("application.name = \"spotify\"")[0].split("\tid ")[-1].split(",")[0]
-        if subprocess.Popen("pactl load-module module-null-sink sink_name=lsd && pactl move-sink-input {} lsd".format(sink_index_spotify),
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True).wait() == 0:
-            print("{}{} I will now listen for tracks to be played ... "
-                  "Please close Spotify as soon as you finished playing all songs!{}".format(INFO, BOLD, RST))
-        else:
-            exit("{} Error while creating the recording device for Spotify.".format(ERROR))
+        subprocess.Popen("pactl load-module module-null-sink sink_name=lsd && pactl move-sink-input {} lsd".format(sink_index_spotify),
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True).wait()
+        print("{}{} I will now listen for tracks to be played ... Please close Spotify as soon as you finished playing all songs!{}".format(INFO, BOLD, RST))
 
         sink_inputs = subprocess.run("pw-cli ls Node".split(), stdout=subprocess.PIPE).stdout.decode()
         sink_index_lsd = sink_inputs.split("node.name = \"lsd\"")[0].split("\tid ")[-1].split(",")[0]
@@ -170,8 +167,8 @@ if __name__ == '__main__':
                         urlretrieve(song["album"]["images"][0]["url"], OUTPUT_DIR + "/.cover.jpg")  # download cover art
                         filename = OUTPUT_DIR + "/" + song["name"].replace("-", "~").replace("/", "~").replace("|", "~").replace("\"", "\'") + ".mp3"
 
-                        timestamp_start = int(timestamps[idx]*1000 - t_start*1000)
-                        timestamp_end = int(timestamps[idx + 1]*1000 - t_start*1000)
+                        timestamp_start = int(timestamps[idx] * 1000 - t_start * 1000)
+                        timestamp_end = int(timestamps[idx + 1] * 1000 - t_start * 1000)
                         # the timestamps are too imprecise, therefore the next position is searched where silence starts / stops and then both values are compared
                         slice_start = min(chunks_starts, key=lambda x: abs(x - timestamp_start))
                         slice_end = min(chunks_ends, key=lambda x: abs(x - timestamp_end))
