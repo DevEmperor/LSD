@@ -200,7 +200,7 @@ if __name__ == '__main__':
             print("{}{} Done!".format(INFO, GREEN))
 
             if show_folder:
-                subprocess.run("xdg-open {}".format(OUTPUT_DIR).split(), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                subprocess.Popen("xdg-open {}".format(OUTPUT_DIR).split(), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
     except KeyboardInterrupt:
         subprocess.Popen("systemctl --user restart pipewire pipewire-pulse".split())
