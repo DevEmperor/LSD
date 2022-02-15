@@ -23,7 +23,7 @@ try:
     import eyed3
 
     # verify that the Pulseaudio and the parec-command is installed on this system
-    if subprocess.Popen("parec --help && pw-cli --help", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True).wait() != 0:
+    if subprocess.Popen("pw-record --help && pw-cli --help && pw-metadata --help", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True).wait() != 0:
         raise ImportError(name="Pipewire & PulseAudio")
 except ImportError as e:
     exit("\033[91mMissing dependency: {}. Please check your installation!".format(e.name))
@@ -31,6 +31,11 @@ except ImportError as e:
 # colors used to make the terminal look nicer
 GREEN, YELLOW, RED, CYAN, BOLD, RST = '\033[92m', '\033[93m', '\033[91m', '\033[96m', '\033[1m', '\033[0m'
 INFO, WARNING, ERROR, REQUEST = f"[{GREEN}+{RST}]", f"[{YELLOW}~{RST}]", f"[{RED}-{RST}]", f"[{CYAN}?{RST}]"
+
+
+def get_sink_id(key):
+    return subprocess.run("pw-cli ls Node".split(), stdout=subprocess.PIPE).stdout.decode().split(key)[0].split("\tid ")[-1].split(",")[0]
+
 
 # main-function
 if __name__ == '__main__':
@@ -47,10 +52,10 @@ if __name__ == '__main__':
               gap + f"██{RED}║{RST}      {YELLOW}╚════{RST}██{YELLOW}║{RST} ██{GREEN}║{RST}  ██{GREEN}║{RST}" +
               gap + f"███████{RED}╗{RST} ███████{YELLOW}║{RST} ██████{GREEN}╔╝{RST}" +
               gap + f"{RED}╚══════╝{RST} {YELLOW}╚══════╝{RST} {GREEN}╚═════╝{RST}" +
-              "\n" + " " * (T_WIDTH // 2 - 14) + " Linux-Spotify-Downloader 2.3" +
+              "\n" + " " * (T_WIDTH // 2 - 14) + " Linux-Spotify-Downloader 2.4" +
               gap + " developed by Jannis Zahn")
 
-        # specify the output-directory
+        # specify the output-directory and further configuration
         print("\n" + "---- CONFIGURATION " + "-" * (T_WIDTH - 19) + "\n")
         if not os.path.isdir(OUTPUT_DIR):
             while True:
@@ -59,6 +64,8 @@ if __name__ == '__main__':
                     break
         OUTPUT_DIR = os.path.abspath(OUTPUT_DIR)
         print("{} Output-Directory: {}".format(INFO, OUTPUT_DIR))
+        mute_recording = input("\n{} Do you want to mute Spotify while recording? [YES / no] ".format(REQUEST)).lower() != "no"
+        show_folder = input("{} Should I open the folder after conversion? [YES / no] ".format(REQUEST)).lower() != "no"
 
         # initialize session-bus for Spotify and create the interface
         print("\n" + "---- DEPENDENCIES " + "-" * (T_WIDTH - 18) + "\n")
@@ -76,13 +83,20 @@ if __name__ == '__main__':
         time.sleep(1)
 
         # find spotify-input-sink and create monitor to record from
-        print("{} I have to play a track to find the Spotify audio source ...".format(INFO))
+        print("{} I have to play a track to create a new recording interface ...".format(INFO))
         methods_if.Play()
         time.sleep(2)
-        sink_inputs = subprocess.run("pw-cli ls Node".split(), stdout=subprocess.PIPE).stdout.decode()
         methods_if.Pause()
         time.sleep(2)
-        sink_index = sink_inputs.split("application.name = \"spotify\"")[0].split("\tid ")[-1].split(",")[0]
+
+        sink_index = get_sink_id("application.name = \"spotify\"")
+        if mute_recording:  # only create the null-audio-sink if the user doesn't want to listen to Spotify while recording
+            subprocess.Popen("pw-cli create-node adapter factory.name=support.null-audio-sink media.class=\"Audio/Sink\" object.linger=1 monitor.channel-volumes=1 "
+                             "node.name=lsd && pw-metadata {} target.node lsd".format(sink_index), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             shell=True).wait()
+            sink_index = get_sink_id("node.name = \"lsd\"")
+
+        print("{}{} I will now listen for tracks to be played ... Please close Spotify as soon as you finished playing all songs!{}".format(INFO, BOLD, RST))
 
         # start the recording with pw-record (PipeWire / PulseAudio-Recording)
         print("\n" + "---- RECORDING " + "-" * (T_WIDTH - 15) + "\n")
@@ -118,7 +132,7 @@ if __name__ == '__main__':
                         ad = True
                 time.sleep(0.01)
 
-        except dbus.exceptions.DBusException:  # means that Spotify is closed, because there is no bus any more
+        except dbus.exceptions.DBusException:  # means that Spotify is closed, because there is no bus anymore
             timestamps.append(time.time())  # necessary to slice the last track
             recording_process.terminate()  # stop the recording
             subprocess.Popen("systemctl --user restart pipewire pipewire-pulse".split())  # restore original pulseaudio-configuration
@@ -168,7 +182,7 @@ if __name__ == '__main__':
                         slice_end = min(chunks_ends, key=lambda x: abs(x - timestamp_end))
                         recording[slice_start:slice_end].export(filename, format="mp3", bitrate="192k", tags=tags, cover=OUTPUT_DIR + "/.cover.jpg")
 
-                        if genius.access_token.startswith("Bearer"):
+                        if genius is not None and genius.access_token.startswith("Bearer"):
                             genius_song = genius.search_song(song["name"], song["artists"][0]["name"])
                             if genius_song is not None:  # only if a song text was found
                                 lyrics = genius_song.lyrics
@@ -184,6 +198,9 @@ if __name__ == '__main__':
                 os.remove(OUTPUT_DIR + "/.cover.jpg")
             os.remove(OUTPUT_DIR + "/.temp.wav")
             print("{}{} Done!".format(INFO, GREEN))
+
+            if show_folder:
+                subprocess.run("xdg-open {}".format(OUTPUT_DIR).split(), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
     except KeyboardInterrupt:
         subprocess.Popen("systemctl --user restart pipewire pipewire-pulse".split())
