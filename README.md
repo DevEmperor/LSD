@@ -1,5 +1,4 @@
-[![asciicast](https://asciinema.org/a/441333.svg)](https://asciinema.org/a/441333)
-
+[![asciicast](https://asciinema.org/a/469262.svg)](https://asciinema.org/a/469262)
 
 
 # LSD (Linux Spotify Downloader)
