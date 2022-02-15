@@ -76,24 +76,18 @@ if __name__ == '__main__':
         time.sleep(1)
 
         # find spotify-input-sink and create monitor to record from
-        print("{} I have to play a track to create a new recording interface ...".format(INFO))
+        print("{} I have to play a track to find the Spotify audio source ...".format(INFO))
         methods_if.Play()
         time.sleep(2)
         sink_inputs = subprocess.run("pw-cli ls Node".split(), stdout=subprocess.PIPE).stdout.decode()
         methods_if.Pause()
         time.sleep(2)
-        sink_index_spotify = sink_inputs.split("application.name = \"spotify\"")[0].split("\tid ")[-1].split(",")[0]
-        subprocess.Popen("pactl load-module module-null-sink sink_name=lsd && pactl move-sink-input {} lsd".format(sink_index_spotify),
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True).wait()
-        print("{}{} I will now listen for tracks to be played ... Please close Spotify as soon as you finished playing all songs!{}".format(INFO, BOLD, RST))
+        sink_index = sink_inputs.split("application.name = \"spotify\"")[0].split("\tid ")[-1].split(",")[0]
 
-        sink_inputs = subprocess.run("pw-cli ls Node".split(), stdout=subprocess.PIPE).stdout.decode()
-        sink_index_lsd = sink_inputs.split("node.name = \"lsd\"")[0].split("\tid ")[-1].split(",")[0]
-
-        # start the recording with parec (PulseAudio-Recording)
+        # start the recording with pw-record (PipeWire / PulseAudio-Recording)
         print("\n" + "---- RECORDING " + "-" * (T_WIDTH - 15) + "\n")
 
-        recording_process = subprocess.Popen("parec --monitor-stream {} --file-format=wav".format(sink_index_lsd).split() + [OUTPUT_DIR + "/.temp.wav"])
+        recording_process = subprocess.Popen("pw-record --target {}".format(sink_index).split() + [OUTPUT_DIR + "/.temp.wav"])
 
         # initialize some variables
         counter = 0
