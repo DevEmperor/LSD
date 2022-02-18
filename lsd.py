@@ -80,7 +80,7 @@ if __name__ == '__main__':
             except dbus.exceptions.DBusException:
                 time.sleep(0.2)
         print("{} OK, I have found a running Spotify-Application".format(INFO))
-        time.sleep(1)
+        time.sleep(2)
 
         # find spotify-input-sink and create monitor to record from
         print("{} I have to play a track to create a new recording interface ...".format(INFO))
@@ -137,70 +137,84 @@ if __name__ == '__main__':
             recording_process.terminate()  # stop the recording
             subprocess.Popen("systemctl --user restart pipewire pipewire-pulse".split())  # restore original pulseaudio-configuration
             tracks = tracks[1:]  # remove the first empty element since it is only used once for comparing above
-            print("\n{} I have recorded {} track(s).".format(INFO, counter))
 
-            if counter > 0:
-                print("\n" + "---- CONVERTING & TAGGING " + "-" * (T_WIDTH - 26) + "\n")
+        print("\n{} I have recorded {} track(s).".format(INFO, counter))
+        while True:
+            try:
+                passes = list(map(int, input("{} Specify a list of songs that should not be converted (e.g. \"1, 5, 13, ...\"): ".format(REQUEST)).split(",")))
+                break
+            except ValueError:
+                pass
 
-                print("{} Converting the recorded wav-file to mp3 ...".format(INFO))
-                AudioSegment.from_wav(OUTPUT_DIR + "/.temp.wav").export(OUTPUT_DIR + "/.temp.mp3", format="mp3", bitrate="192k")
-                recording = AudioSegment.from_mp3(OUTPUT_DIR + "/.temp.mp3")
+        if counter > 0:
+            print("\n" + "---- CONVERTING & TAGGING " + "-" * (T_WIDTH - 26) + "\n")
 
-                print("{} Splitting the recorded file on silence ...".format(INFO))
-                chunks = silence.detect_nonsilent(recording, min_silence_len=400, silence_thresh=-65, seek_step=10)
-                chunks_starts = [c[0] for c in chunks]
-                chunks_ends = [c[1] for c in chunks]
+            print("{} Converting the recorded wav-file to mp3 ...".format(INFO))
+            AudioSegment.from_wav(OUTPUT_DIR + "/.temp.wav").export(OUTPUT_DIR + "/.temp.mp3", format="mp3", bitrate="192k")
+            recording = AudioSegment.from_mp3(OUTPUT_DIR + "/.temp.mp3")
 
-                # initialize access to Genius-API
-                genius = None
-                if GENIUS_ACCESS_TOKEN != "":
-                    genius = lyricsgenius.Genius(GENIUS_ACCESS_TOKEN)
-                    genius.verbose = False
+            print("{} Splitting the recorded file on silence ...".format(INFO))
+            chunks = silence.detect_nonsilent(recording, min_silence_len=400, silence_thresh=-65, seek_step=10)
+            chunks_starts = [c[0] for c in chunks]
+            chunks_ends = [c[1] for c in chunks]
 
-                for idx in range(len(timestamps) - 1):
-                    if tracks[idx].startswith("https://open.spotify.com/track/"):  # check for ad
-                        song = sp.track(tracks[idx])
-                        print("{} Converting and tagging \"{}\" ...".format(INFO, song["name"]))
+            # initialize access to Genius-API
+            genius = None
+            if GENIUS_ACCESS_TOKEN != "":
+                genius = lyricsgenius.Genius(GENIUS_ACCESS_TOKEN)
+                genius.verbose = False
 
-                        # parse tags and download cover
-                        tags = {
-                            "title": song["name"].replace("-", "~").replace("/", "|"),
-                            "artist": ", ".join(song["artists"][x]["name"].replace("-", "~") for x in range(len(song["artists"]))),
-                            "album_artist": ", ".join(song["album"]["artists"][x]["name"].replace("-", "~") for x in range(len(song["album"]["artists"]))),
-                            "album": song["album"]["name"],
-                            "copyright": "Recorded with LinuxSpotifyDownloader from Spotify",
-                            "track": song["track_number"],
-                            "date": song["album"]["release_date"][0:4]
-                        }
-                        urlretrieve(song["album"]["images"][0]["url"], OUTPUT_DIR + "/.cover.jpg")  # download cover art
-                        filename = OUTPUT_DIR + "/" + song["name"].replace("-", "~").replace("/", "~").replace("|", "~").replace("\"", "\'") + ".mp3"
+            counter = 0
+            for idx in range(len(timestamps) - 1):
+                if tracks[idx].startswith("https://open.spotify.com/track/"):  # check for ad
+                    song = sp.track(tracks[idx])  # TODO: add except for network error
 
-                        timestamp_start = int(timestamps[idx] * 1000 - t_start * 1000)
-                        timestamp_end = int(timestamps[idx + 1] * 1000 - t_start * 1000)
-                        # the timestamps are too imprecise, therefore the next position is searched where silence starts / stops and then both values are compared
-                        slice_start = min(chunks_starts, key=lambda x: abs(x - timestamp_start))
-                        slice_end = min(chunks_ends, key=lambda x: abs(x - timestamp_end))
-                        recording[slice_start:slice_end].export(filename, format="mp3", bitrate="192k", tags=tags, cover=OUTPUT_DIR + "/.cover.jpg")
+                    if idx + 1 in passes:  # skip converting that song if it is specified in passes
+                        print("{} Skipping \"{}\" ...".format(INFO, song["name"]))
+                        continue
 
-                        if genius is not None and genius.access_token.startswith("Bearer"):
-                            genius_song = genius.search_song(song["name"], song["artists"][0]["name"])
-                            if genius_song is not None:  # only if a song text was found
-                                lyrics = genius_song.lyrics
-                            else:
-                                lyrics = "There are no lyrics available for this track..."
+                    print("{} Converting and tagging \"{}\" ...".format(INFO, song["name"]))
+
+                    # parse tags and download cover
+                    tags = {
+                        "title": song["name"].replace("-", "~").replace("/", "|"),
+                        "artist": ", ".join(song["artists"][x]["name"].replace("-", "~") for x in range(len(song["artists"]))),
+                        "album_artist": ", ".join(song["album"]["artists"][x]["name"].replace("-", "~") for x in range(len(song["album"]["artists"]))),
+                        "album": song["album"]["name"],
+                        "copyright": "Recorded with LinuxSpotifyDownloader from Spotify",
+                        "track": song["track_number"],
+                        "date": song["album"]["release_date"][0:4]
+                    }
+                    urlretrieve(song["album"]["images"][0]["url"], OUTPUT_DIR + "/.cover.jpg")  # download cover art
+                    filename = OUTPUT_DIR + "/" + song["name"].replace("-", "~").replace("/", "~").replace("|", "~").replace("\"", "\'") + ".mp3"
+
+                    timestamp_start = int(timestamps[idx] * 1000 - t_start * 1000)
+                    timestamp_end = int(timestamps[idx + 1] * 1000 - t_start * 1000)
+                    # the timestamps are too imprecise, therefore the next position is searched where silence starts / stops and then both values are compared
+                    slice_start = min(chunks_starts, key=lambda x: abs(x - timestamp_start))
+                    slice_end = min(chunks_ends, key=lambda x: abs(x - timestamp_end))
+                    recording[slice_start:slice_end].export(filename, format="mp3", bitrate="192k", tags=tags, cover=OUTPUT_DIR + "/.cover.jpg")
+
+                    if genius is not None and genius.access_token.startswith("Bearer"):
+                        genius_song = genius.search_song(song["name"], song["artists"][0]["name"])  # TODO: add except for network error
+                        if genius_song is not None:  # only if a song text was found
+                            lyrics = genius_song.lyrics
                         else:
                             lyrics = "There are no lyrics available for this track..."
-                        audiofile = eyed3.load(filename)  # inject the lyrics with eyeD3 because ffmpeg sets a wrong tag
-                        audiofile.tag.lyrics.set(lyrics, u"XXX")
-                        audiofile.tag.save()
+                    else:
+                        lyrics = "There are no lyrics available for this track..."
+                    audiofile = eyed3.load(filename)  # inject the lyrics with eyeD3 because ffmpeg sets a wrong tag
+                    audiofile.tag.lyrics.set(lyrics, u"XXX")
+                    audiofile.tag.save()
+                    counter += 1
 
-                os.remove(OUTPUT_DIR + "/.temp.mp3")  # remove all temporary files
-                os.remove(OUTPUT_DIR + "/.cover.jpg")
-            os.remove(OUTPUT_DIR + "/.temp.wav")
-            print("{}{} Done!".format(INFO, GREEN))
+            os.remove(OUTPUT_DIR + "/.temp.mp3")  # remove all temporary files
+            os.remove(OUTPUT_DIR + "/.cover.jpg")
+        os.remove(OUTPUT_DIR + "/.temp.wav")
+        print("\n{}{} Done! Recorded and converted {} tracks. Bye!{}".format(INFO, GREEN, counter, RST))
 
-            if show_folder:
-                subprocess.Popen("xdg-open {}".format(OUTPUT_DIR).split(), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        if show_folder:
+            subprocess.Popen("xdg-open {}".format(OUTPUT_DIR).split(), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
     except KeyboardInterrupt:
         subprocess.Popen("systemctl --user restart pipewire pipewire-pulse".split())
