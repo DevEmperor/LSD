@@ -15,6 +15,7 @@ try:
     import shutil
     from urllib.request import urlretrieve
     import dbus
+    import requests
 
     import spotipy
     from spotipy.oauth2 import SpotifyClientCredentials
@@ -22,7 +23,7 @@ try:
     import lyricsgenius
     import eyed3
 
-    # verify that the Pulseaudio and the parec-command is installed on this system
+    # verify that the Pulseaudio / Pipewire and the pw-commands are installed on this system
     if subprocess.Popen("pw-record --help && pw-cli --help && pw-metadata --help", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True).wait() != 0:
         raise ImportError(name="Pipewire & PulseAudio")
 except ImportError as e:
@@ -52,7 +53,7 @@ if __name__ == '__main__':
               gap + f"██{RED}║{RST}      {YELLOW}╚════{RST}██{YELLOW}║{RST} ██{GREEN}║{RST}  ██{GREEN}║{RST}" +
               gap + f"███████{RED}╗{RST} ███████{YELLOW}║{RST} ██████{GREEN}╔╝{RST}" +
               gap + f"{RED}╚══════╝{RST} {YELLOW}╚══════╝{RST} {GREEN}╚═════╝{RST}" +
-              "\n" + " " * (T_WIDTH // 2 - 14) + " Linux-Spotify-Downloader 2.4" +
+              "\n" + " " * (T_WIDTH // 2 - 14) + " Linux-Spotify-Downloader 2.5" +
               gap + " developed by Jannis Zahn")
 
         # specify the output-directory and further configuration
@@ -141,7 +142,11 @@ if __name__ == '__main__':
         print("\n{} I have recorded {} track(s).".format(INFO, counter))
         while True:
             try:
-                passes = list(map(int, input("{} Specify a list of songs that should not be converted (e.g. \"1, 5, 13, ...\"): ".format(REQUEST)).split(",")))
+                q = input("{} Specify a list of songs that should not be converted (e.g. \"1, 5, 13, ...\"): ".format(REQUEST))
+                if q == "":
+                    passes = []
+                else:
+                    passes = list(map(int, q.split(",")))
                 break
             except ValueError:
                 pass
@@ -167,7 +172,12 @@ if __name__ == '__main__':
             counter = 0
             for idx in range(len(timestamps) - 1):
                 if tracks[idx].startswith("https://open.spotify.com/track/"):  # check for ad
-                    song = sp.track(tracks[idx])  # TODO: add except for network error
+                    while True:
+                        try:
+                            song = sp.track(tracks[idx])
+                            break
+                        except requests.exceptions.RequestException:
+                            input("{} Couldn't get song information from Spotify... Please fix your network connection and press ENTER!".format(ERROR))
 
                     if idx + 1 in passes:  # skip converting that song if it is specified in passes
                         print("{} Skipping \"{}\" ...".format(INFO, song["name"]))
@@ -196,7 +206,12 @@ if __name__ == '__main__':
                     recording[slice_start:slice_end].export(filename, format="mp3", bitrate="192k", tags=tags, cover=OUTPUT_DIR + "/.cover.jpg")
 
                     if genius is not None and genius.access_token.startswith("Bearer"):
-                        genius_song = genius.search_song(song["name"], song["artists"][0]["name"])  # TODO: add except for network error
+                        while True:
+                            try:
+                                genius_song = genius.search_song(song["name"], song["artists"][0]["name"])
+                                break
+                            except requests.exceptions.RequestException:
+                                input("{} Couldn't get song lyrics from Genius... Please fix your network connection and press ENTER!".format(ERROR))
                         if genius_song is not None:  # only if a song text was found
                             lyrics = genius_song.lyrics
                         else:
@@ -209,7 +224,8 @@ if __name__ == '__main__':
                     counter += 1
 
             os.remove(OUTPUT_DIR + "/.temp.mp3")  # remove all temporary files
-            os.remove(OUTPUT_DIR + "/.cover.jpg")
+            if counter > 0:
+                os.remove(OUTPUT_DIR + "/.cover.jpg")
         os.remove(OUTPUT_DIR + "/.temp.wav")
         print("\n{}{} Done! Recorded and converted {} tracks. Bye!{}".format(INFO, GREEN, counter, RST))
 
