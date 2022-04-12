@@ -136,7 +136,8 @@ if __name__ == '__main__':
         except dbus.exceptions.DBusException:  # means that Spotify is closed, because there is no bus anymore
             timestamps.append(time.time())  # necessary to slice the last track
             recording_process.terminate()  # stop the recording
-            subprocess.Popen("systemctl --user restart pipewire pipewire-pulse".split())  # restore original pulseaudio-configuration
+            # restore original pulseaudio-configuration
+            subprocess.Popen("systemctl --user restart pipewire pipewire-pulse && systemctl --user daemon-reload".split(), stdout=subprocess.DEVNULL, shell=True)
             tracks = tracks[1:]  # remove the first empty element since it is only used once for comparing above
 
         print("\n{} I have recorded {} track(s).".format(INFO, counter))
@@ -170,6 +171,7 @@ if __name__ == '__main__':
                 genius.verbose = False
 
             counter = 0
+            ads_before = 0
             for idx in range(len(timestamps) - 1):
                 if tracks[idx].startswith("https://open.spotify.com/track/"):  # check for ad
                     while True:
@@ -179,7 +181,7 @@ if __name__ == '__main__':
                         except requests.exceptions.RequestException:
                             input("{} Couldn't get song information from Spotify... Please fix your network connection and press ENTER!".format(ERROR))
 
-                    if idx + 1 in passes:  # skip converting that song if it is specified in passes
+                    if idx - ads_before + 1 in passes:  # skip converting if song is in passes
                         print("{} Skipping \"{}\" ...".format(INFO, song["name"]))
                         continue
 
@@ -222,6 +224,8 @@ if __name__ == '__main__':
                     audiofile.tag.lyrics.set(lyrics, u"XXX")
                     audiofile.tag.save()
                     counter += 1
+                else:
+                    ads_before += 1
 
             os.remove(OUTPUT_DIR + "/.temp.mp3")  # remove all temporary files
             if counter > 0:
