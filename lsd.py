@@ -137,7 +137,7 @@ if __name__ == '__main__':
             timestamps.append(time.time())  # necessary to slice the last track
             recording_process.terminate()  # stop the recording
             # restore original pulseaudio-configuration
-            subprocess.Popen("systemctl --user restart pipewire pipewire-pulse && systemctl --user daemon-reload".split(), stdout=subprocess.DEVNULL, shell=True)
+            subprocess.Popen("systemctl --user restart pipewire pipewire-pulse && systemctl --user daemon-reload", stdout=subprocess.DEVNULL, shell=True)
             tracks = tracks[1:]  # remove the first empty element since it is only used once for comparing above
 
         print("\n{} I have recorded {} track(s).".format(INFO, counter))
@@ -234,8 +234,8 @@ if __name__ == '__main__':
         print("\n{}{} Done! Recorded and converted {} tracks. Bye!{}".format(INFO, GREEN, counter, RST))
 
         if show_folder:
-            subprocess.Popen("xdg-open {}".format(OUTPUT_DIR).split(), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            subprocess.Popen("xdg-open {}".format(OUTPUT_DIR).split(), stdout=subprocess.PIPE)
 
     except KeyboardInterrupt:
-        subprocess.Popen("systemctl --user restart pipewire pipewire-pulse".split())
+        subprocess.Popen("systemctl --user restart pipewire pipewire-pulse && systemctl --user daemon-reload", stdout=subprocess.DEVNULL, shell=True)
         exit("\n{}Detected Ctrl+C (Keyboard-Interrupt) ... Bye! :-)".format(RED))
