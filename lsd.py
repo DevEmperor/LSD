@@ -67,6 +67,7 @@ if __name__ == '__main__':
         print("{} Output-Directory: {}".format(INFO, OUTPUT_DIR))
         mute_recording = input("\n{} Do you want to mute Spotify while recording? [YES / no] ".format(REQUEST)).lower() != "no"
         show_folder = input("{} Should I open the folder after conversion? [YES / no] ".format(REQUEST)).lower() != "no"
+        add_covers = input("{} Should I add the cover arts to your tracks? [YES / no] ".format(REQUEST)).lower() != "no"
 
         # initialize session-bus for Spotify and create the interface
         print("\n" + "---- DEPENDENCIES " + "-" * (T_WIDTH - 18) + "\n")
@@ -205,7 +206,7 @@ if __name__ == '__main__':
                     # the timestamps are too imprecise, therefore the next position is searched where silence starts / stops and then both values are compared
                     slice_start = min(chunks_starts, key=lambda x: abs(x - timestamp_start))
                     slice_end = min(chunks_ends, key=lambda x: abs(x - timestamp_end))
-                    recording[slice_start:slice_end].export(filename, format="mp3", bitrate="192k", tags=tags, cover=OUTPUT_DIR + "/.cover.jpg")
+                    recording[slice_start:slice_end].export(filename, format="mp3", bitrate="192k", tags=tags, cover=OUTPUT_DIR + "/.cover.jpg" if add_covers else None)
 
                     if genius is not None and genius.access_token.startswith("Bearer"):
                         while True:
@@ -234,7 +235,7 @@ if __name__ == '__main__':
         print("\n{}{} Done! Recorded and converted {} tracks. Bye!{}".format(INFO, GREEN, counter, RST))
 
         if show_folder:
-            subprocess.Popen("xdg-open {}".format(OUTPUT_DIR).split(), stdout=subprocess.PIPE)
+            subprocess.Popen("xdg-open \"{}\"".format(OUTPUT_DIR).split(), stdout=subprocess.PIPE)
 
     except KeyboardInterrupt:
         subprocess.Popen("systemctl --user restart pipewire pipewire-pulse && systemctl --user daemon-reload", stdout=subprocess.DEVNULL, shell=True)
