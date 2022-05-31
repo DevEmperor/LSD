@@ -82,7 +82,7 @@ if __name__ == '__main__':
             except dbus.exceptions.DBusException:
                 time.sleep(0.2)
         print("{} OK, I have found a running Spotify-Application".format(INFO))
-        print("{} Press ENTER as soon as Spotify is able to play a track ...".format(REQUEST))
+        input("{} Press ENTER as soon as Spotify is able to play a track ...".format(REQUEST))
 
         # find spotify-input-sink and create monitor to record from
         print("{} I have to play a track to create a new recording interface ...".format(INFO))
